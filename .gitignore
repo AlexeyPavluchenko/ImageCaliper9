@@ -1,0 +1,18 @@
+# Internal plans, drafts, and tests (not for publishing)
+plans/
+review/
+test/
+mockups/
+
+# Archived / unused code
+archive/
+
+# Test samples and exported files
+samples/
+
+# Russian-language documentation (internal)
+docs/*.ru.md
+
+# OS files
+.DS_Store
+Thumbs.db

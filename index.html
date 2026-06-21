@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="app.title">ImageCaliper 9 — Измерение изображений</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Header / Toolbar -->
+<header id="toolbar" style="display:flex;flex-direction:row;align-items:stretch;">
+  <div style="display:flex;align-items:center;padding:0 8px;flex-shrink:0;">
+    <img src="Icon.png" style="height:100%;max-height:100px;width:auto;">
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;">
+  <div class="toolbar-row top-row">
+    <h1>ImageCaliper 9</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label class="btn btn-primary" id="loadBtn">
+        <span data-i18n="ui.load">📁 Загрузить</span>
+        <input type="file" id="fileInput" accept="image/*,.tif,.tiff,.icp" hidden>
+      </label>
+      <button class="btn btn-small" id="saveProjectBtn" data-i18n="ui.save">💾 Сохранить проект</button>
+      <button class="btn btn-small" id="exportBtn" data-i18n="ui.export">🖼 Экспорт PNG</button>
+      <span style="display:flex;align-items:center;gap:3px;font-size:12px;margin-left:8px;">
+        Language:
+        <select id="langSelect" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:12px;">
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </select>
+      </span>
+    </div>
+  </div>
+  <div class="toolbar-row">
+    <!-- Measurement tools -->
+    <div class="mode-group">
+      <button class="mode-btn" data-mode="distance" data-i18n="tool.distance" data-i18n-title="tool.distance.hint" title="Линейное расстояние (2 точки)">📏 Расстояние</button>
+      <button class="mode-btn" data-mode="circle3" data-i18n="tool.circle3" data-i18n-title="tool.circle3.hint" title="Окружность по 3 точкам">⭕ По 3 точкам</button>
+      <button class="mode-btn" data-mode="circle1" data-i18n="tool.circle1" data-i18n-title="tool.circle1.hint" title="Окружность: центр + точка">⭕ Центр + точка</button>
+      <button class="mode-btn" data-mode="polyline" data-i18n="tool.polyline" data-i18n-title="tool.polyline.hint" title="Ломаная линия (Enter=готово, Escape=отмена точки)">📐 Ломаная</button>
+      <button class="mode-btn" data-mode="polygon" data-i18n="tool.polygon" data-i18n-title="tool.polygon.hint" title="Площадь многоугольника">⬡ Площадь</button>
+      <button class="mode-btn" data-mode="angle" data-i18n="tool.angle" data-i18n-title="tool.angle.hint" title="Угол: точка-вершина-точка (Shift=15°)">∠ Угол</button>
+      <button class="mode-btn" data-mode="scalebar" data-i18n="tool.scalebar" data-i18n-title="tool.scalebar.hint" title="Масштабная планка — прямоугольник заданной длины">▬ Шкала</button>
+    </div>
+    <button class="btn btn-small btn-danger" id="clearBtn" data-i18n="ui.clear">🗑 Очистить</button>
+    <button class="btn btn-small" id="undoBtn" data-i18n="ui.undo">↩ Отменить</button>
+  </div>
+  <div class="toolbar-row">
+    <!-- Utility tools — in workflow order -->
+    <div class="mode-group">
+      <button class="mode-btn" data-mode="calibrate" data-i18n="tool.calibrate" data-i18n-title="tool.calibrate.hint" title="Калибровка — провести отрезок известной длины">🗜 Калибровка</button>
+      <button class="mode-btn" data-mode="rotate" data-i18n="tool.rotate" data-i18n-title="tool.rotate.hint" title="Поворот — стрелки ← →, Shift+стрелки 0.1°">↻ Поворот</button>
+      <button class="mode-btn" data-mode="crop" data-i18n="tool.crop" data-i18n-title="tool.crop.hint" title="Обрезка — выделите область">✂ Обрезка</button>
+      <!-- Annotation dropdown -->
+      <div class="anno-dropdown-wrap">
+        <button class="mode-btn mode-btn-anno" id="annoBtn" data-i18n-title="tool.annotation.hint" title="Аннотация: линия или стрелка">
+          ✏️ <span id="annoLabel" data-i18n="anno.arrow">→ Стрелка</span> <span class="dd-arrow">▼</span>
+        </button>
+        <div class="anno-dropdown-menu" id="annoDropdown">
+          <div class="anno-dd-item" data-subtype="line"><span class="dd-icon">—</span> <span data-i18n="anno.line">Линия</span></div>
+          <div class="anno-dd-item" data-subtype="arrow"><span class="dd-icon">→</span> <span data-i18n="anno.arrow">Стрелка</span></div>
+          <div class="anno-dd-item" data-subtype="rect"><span class="dd-icon">□</span> <span data-i18n="anno.rect">Прямоугольник</span></div>
+          <div class="anno-dd-item" data-subtype="ellipse"><span class="dd-icon">⬭</span> <span data-i18n="anno.ellipse">Эллипс</span></div>
+          <div class="anno-dd-item" data-subtype="text"><span class="dd-icon">🔤</span> <span data-i18n="anno.text">Текст</span></div>
+        </div>
+      </div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:2px;cursor:pointer;margin-left:4px;">
+        <input type="checkbox" id="clipToggle"> <span data-i18n="ui.clip">Клиппинг</span>
+      </label>
+    </div>
+    <span class="dpi-group">
+      <span data-i18n="prop.unit">Ед.:</span>
+      <select id="unitSelect">
+        <option value="km">km</option>
+        <option value="m">m</option>
+        <option value="cm">cm</option>
+        <option value="mm" selected>mm</option>
+        <option value="um">&mu;m</option>
+        <option value="nm">nm</option>
+        <option value="A">&Aring;</option>
+        <option value="in">in</option>
+      </select>
+    </span>
+    <span style="display:flex;align-items:center;gap:3px;font-size:12px;">
+      <span data-i18n="ui.bg">Фон:</span>
+      <input type="color" id="bgColor" value="#000000" style="width:26px;height:22px;padding:0;border:none;cursor:pointer;" data-i18n-title="ui.bg" title="Цвет фона">
+      <span id="bgBlackBtn" style="width:16px;height:16px;background:#000;border:1px solid var(--border);border-radius:3px;cursor:pointer;display:inline-block;" title="ui.bgBlack" data-i18n-title="ui.bgBlack"></span>
+      <span id="bgWhiteBtn" style="width:16px;height:16px;background:#fff;border:1px solid var(--border);border-radius:3px;cursor:pointer;display:inline-block;" title="ui.bgWhite" data-i18n-title="ui.bgWhite"></span>
+    </span>
+  </div>
+<input type="hidden" id="dpiInput" value="300">
+<button id="applyDpiBtn" hidden></button>
+  </div>
+</header>
+
+<!-- Main content: canvas + side panel -->
+<!-- Magnifier Loupe -->
+<div id="magnifier" class="magnifier hidden">
+  <canvas id="magnifierCanvas"></canvas>
+  <div class="magnifier-coords"></div>
+</div>
+
+<main id="mainContainer">
+  <div id="canvasWrapper">
+    <canvas id="imageCanvas"></canvas>
+    <div id="noImageOverlay">
+      <p data-i18n="ui.noImage">📁 Загрузите изображение для начала работы</p>
+    </div>
+  </div>
+  <aside id="sidePanel">
+    <div id="measListContainer">
+      <h3 data-i18n="panel.measurements">📏 Измерения</h3>
+      <div id="measurementList">
+        <p class="hint" data-i18n="ui.noMeasurements">Пока нет измерений</p>
+      </div>
+    </div>
+    <hr>
+    <div id="propsPanel" class="props-panel hidden">
+      <h3 data-i18n="panel.properties">🎨 Свойства</h3>
+      <table class="props-table">
+        <tr id="propColorRow"><td class="pt" data-i18n="prop.color">Цвет</td><td class="pc" style="display:flex;gap:3px;align-items:center;"><input type="color" id="propColor" value="#7c6ff0" list="colorPresets"><span class="bw-swatch" data-target="propColor" style="background:#000;"></span><span class="bw-swatch" data-target="propColor" style="background:#fff;"></span></td></tr>
+        <tr id="propBarBorderRow" style="display:none;"><td class="pt" data-i18n="prop.border">Граница</td><td class="pc" style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;"><input type="color" id="propBarBorderColor" value="#ffffff" list="colorPresets"><span class="bw-swatch" data-target="propBarBorderColor" style="background:#000;"></span><span class="bw-swatch" data-target="propBarBorderColor" style="background:#fff;"></span> <input type="range" id="propBarBorderWidth" min="0" max="5" value="1" step="0.5" style="width:60px;" title="Border width"></td></tr>
+        <tr id="propBarBorderOpacityRow" style="display:none;"><td class="pt" data-i18n="prop.borderOpacity">прозр.</td><td class="pc" style="width:100%;"><input type="range" id="propBarBorderOpacity" min="0" max="100" value="100" style="width:100%;"></td></tr>
+        <tr><td class="pt" data-i18n="prop.thickness">Толщина</td><td class="pc"><input type="range" id="propLineWidth" min="1" max="10" value="2" step="0.5"></td></tr>
+        <tr><td class="pt" data-i18n="prop.style">Стиль</td><td class="pc"><select id="propLineDash"><option value="solid" data-i18n="style.solid">Сплошная</option><option value="dashed" data-i18n="style.dashed">Штриховая</option><option value="dotted" data-i18n="style.dotted">Точечная</option></select></td></tr>
+        <tr id="propFillRow"><td class="pt" data-i18n="prop.fill">Заливка</td><td class="pc" style="display:flex;gap:3px;align-items:center;"><input type="color" id="propFillColor" value="#7c6ff0" list="colorPresets"><span class="bw-swatch" data-target="propFillColor" style="background:#000;"></span><span class="bw-swatch" data-target="propFillColor" style="background:#fff;"></span></td></tr>
+        <tr><td class="pt" data-i18n="prop.fillOpacity">Прозр. заливки</td><td class="pc"><input type="range" id="propFillOpacity" min="0" max="100" value="13"></td></tr>
+        <tr><td class="pt" data-i18n="prop.format">Формат</td><td class="pc"><input type="text" id="propLabelFormat" value="{v}"></td></tr>
+        <tr><td class="pt" data-i18n="prop.font">Шрифт</td><td class="pc"><select id="propFontFamily"><option value="sans-serif">sans-serif</option><option value="serif">serif</option><option value="monospace">monospace</option><option value="Arial">Arial</option><option value="Helvetica">Helvetica</option><option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Courier New">Courier New</option></select></td></tr>
+        <tr><td class="pt" data-i18n="prop.size">Размер</td><td class="pc"><input type="number" id="propFontSize" value="13" min="6" max="72" step="1" style="width:70px;"></td></tr>
+        <tr><td class="pt" data-i18n="prop.fontStyle">Стиль</td><td class="pc" style="display:flex;gap:4px;">
+          <button class="btn btn-small font-style-btn" id="propBold" style="font-weight:700;width:32px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;">B</button>
+          <button class="btn btn-small font-style-btn" id="propItalic" style="font-style:italic;width:32px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;">I</button>
+        </td></tr>
+        <tr><td class="pt" data-i18n="prop.fontColor">Цвет текста</td><td class="pc" style="display:flex;gap:3px;align-items:center;"><input type="color" id="propFontColor" value="#ffffff" list="colorPresets"><span class="bw-swatch" data-target="propFontColor" style="background:#000;"></span><span class="bw-swatch" data-target="propFontColor" style="background:#fff;"></span></td></tr>
+        <tr><td class="pt" data-i18n="prop.labelBg">Фон подписи</td><td class="pc" style="display:flex;gap:3px;align-items:center;"><input type="color" id="propLabelBg" value="#000000" list="colorPresets"><span class="bw-swatch" data-target="propLabelBg" style="background:#000;"></span><span class="bw-swatch" data-target="propLabelBg" style="background:#fff;"></span></td></tr>
+        <tr><td class="pt" data-i18n="prop.labelBgOpacity">Прозр. фона</td><td class="pc"><input type="range" id="propLabelBgOpacity" min="0" max="100" value="70"></td></tr>
+        <tr id="propUnitRow"><td class="pt" data-i18n="prop.unit">Единица</td><td class="pc"><input type="checkbox" id="propUnitOverride"> <label for="propUnitOverride" data-i18n="prop.own">своя</label> <select id="propUnitSelect"><option value="km">km</option><option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="um">&mu;m</option><option value="nm">nm</option><option value="A">&Aring;</option><option value="in">in</option></select></td></tr>
+        <tr><td class="pt" data-i18n="prop.ends">Концы</td><td class="pc"><select id="propPointStyle"><option value="none" selected data-i18n="ends.none">Нет</option><option value="circle" data-i18n="ends.circle">Кружки</option><option value="tick" data-i18n="ends.tick">Черточки</option></select></td></tr>
+        <tr><td class="pt" data-i18n="prop.pointSize">Размер</td><td class="pc"><input type="range" id="propPointSize" min="1" max="8" value="5" step="0.5"></td></tr>
+        <tr id="propBarHeightRow"><td class="pt" data-i18n="prop.height">Высота</td><td class="pc"><input type="range" id="propBarHeight" min="5" max="200" value="20" step="1"></td></tr>
+        <tr id="propBarValueRow" style="display:none;"><td class="pt" data-i18n="prop.value">Значение</td><td class="pc"><input type="number" id="propBarValue" value="10" step="0.1" min="0.001" style="width:80px;"> <select id="propBarUnit"><option value="km">km</option><option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="um">&mu;m</option><option value="nm">nm</option><option value="A">&Aring;</option><option value="in">in</option></select></td></tr>
+        <tr><td class="pt" data-i18n="prop.label">Подпись</td><td class="pc"><input type="checkbox" id="propLabelVisible" checked> <label for="propLabelVisible" data-i18n="prop.show">показать</label></td></tr>
+        <!-- Annotation: double-ended arrow -->
+        <tr id="propDoubleEndedRow" style="display:none;"><td class="pt"></td><td class="pc"><label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="propDoubleEnded"> <span data-i18n="prop.doubleEnded">Двусторонняя</span></label></td></tr>
+        <tr id="propTextRotationRow" style="display:none;"><td class="pt" data-i18n="prop.rotation">Поворот</td><td class="pc" style="display:flex;gap:3px;align-items:center;"><input type="number" id="propTextRotation" value="0" step="1" style="width:60px;">° <button class="btn btn-small" id="textRotLeftBtn" style="padding:2px 6px;font-size:12px;">◀ 10°</button> <button class="btn btn-small" id="textRotRightBtn" style="padding:2px 6px;font-size:12px;">10° ▶</button></td></tr>
+        <tr id="propTextContentRow" style="display:none;"><td class="pt" data-i18n="prop.text">Текст</td><td class="pc"><input type="text" id="propTextContent" value="" style="width:100%;"></td></tr>
+        <tr><td colspan="2" style="padding:6px 0;display:flex;gap:4px;">
+          <button class="btn btn-small" id="propSaveDefault" style="flex:1;" data-i18n="btn.saveStyle" data-i18n-title="btn.saveStyle.title" title="Сохранить как стиль по умолчанию для этого типа">💾 Запомнить</button>
+          <button class="btn btn-small" id="propApplyAll" style="flex:1;" data-i18n="btn.applyToAll" data-i18n-title="btn.applyToAll.title" title="Применить этот стиль ко всем измерениям того же типа">📋 Применить ко всем</button>
+        </td></tr>
+      </table>
+    </div>
+    <!-- Crop Panel -->
+    <div id="cropPanel" class="crop-panel hidden">
+      <h3 data-i18n="panel.crop">✂ Обрезка</h3>
+      <div class="crop-row"><label class="pt" data-i18n="crop.aspect">Соотношение:</label>
+        <select id="cropAspect" style="width:100%;padding:4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+          <option value="free" data-i18n="crop.aspect.free">Свободно</option>
+          <option value="1">1:1</option>
+          <option value="1.333">4:3</option>
+          <option value="1.778">16:9</option>
+          <option value="custom" data-i18n="crop.aspect.custom">Своё</option>
+        </select>
+      </div>
+      <div class="crop-row"><label class="pt" data-i18n="crop.width">Ширина:</label>
+        <input type="number" id="cropWidth" value="" step="any" style="width:80px;"></div>
+      <div class="crop-row"><label class="pt" data-i18n="crop.height">Высота:</label>
+        <input type="number" id="cropHeight" value="" step="any" style="width:80px;"></div>
+      <div class="crop-row">
+        <label class="pt">Ед.:</label>
+        <select id="cropUnit" style="padding:4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+          <option value="px">px</option>
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+        </select>
+      </div>
+      <div class="crop-actions" style="display:flex;gap:5px;margin-top:6px;">
+        <button class="btn btn-primary btn-small" id="cropApplyBtn" data-i18n="crop.apply">Применить</button>
+        <button class="btn btn-small" id="cropCancelBtn" data-i18n="crop.cancel">Отмена</button>
+        <button class="btn btn-small" id="cropResetBtn" style="margin-left:auto;color:var(--danger);" data-i18n="crop.reset">Сброс</button>
+      </div>
+      <div id="cropInfo" style="font-size:11px;color:var(--text-dim);margin-top:4px;"></div>
+    </div>
+    <!-- Rotation Panel -->
+    <div id="rotationPanel" class="rotation-panel hidden">
+      <h3 data-i18n="panel.rotate">↻ Поворот</h3>
+      <div class="crop-row"><label class="pt" data-i18n="rotate.angle">Угол:</label>
+        <input type="number" id="rotateAngleInput" value="0" step="0.1" style="width:70px;padding:4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+        <span>°</span>
+      </div>
+      <div class="crop-row" style="margin-top:4px;">
+        <button class="btn btn-small" id="rotateLeftBtn" style="flex:1;">◀ 10°</button>
+        <button class="btn btn-small" id="rotateRightBtn" style="flex:1;">10° ▶</button>
+      </div>
+      <div class="crop-row">
+        <button class="btn btn-small" id="rotateFineLeftBtn" style="flex:1;">◀ 1°</button>
+        <button class="btn btn-small" id="rotateFineRightBtn" style="flex:1;">1° ▶</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">
+        <span data-i18n="rotate.hint">← → 1°, Shift+← → 0.1°. Drag the guides.</span><br>
+        <span data-i18n="rotate.buttons">Buttons — 10° and 1°</span>
+      </div>
+      <div class="crop-actions" style="display:flex;gap:5px;margin-top:6px;">
+        <button class="btn btn-small" id="rotateResetBtn" data-i18n="rotate.reset">↺ Сброс</button>
+        <button class="btn btn-primary btn-small" id="rotateDoneBtn" data-i18n="rotate.done">Готово</button>
+        <button class="btn btn-small" id="rotateCancelBtn" data-i18n="rotate.cancel">Отмена</button>
+      </div>
+    </div>
+    <hr>
+    <div id="statsPanel">
+      <p><span data-i18n="ui.mode">Режим</span>: <span id="activeMode">—</span></p>
+      <p style="cursor:pointer;color:var(--accent);font-size:12px;" id="infoBtn" data-i18n="ui.info">ℹ Информация об изображении</p>
+    </div>
+  </aside>
+</main>
+
+<!-- Calibration Modal -->
+<div id="calibrationModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="close-btn" id="closeModal">&times;</span>
+    <h2 data-i18n="calibrate.title">🗜 Калибровка изображения</h2>
+    <p data-i18n="calibrate.instruction">Проведите отрезок известной длины на изображении (кликните 2 точки).</p>
+    <div class="form-row">
+      <label data-i18n="calibrate.segmentLen">Длина отрезка:</label>
+      <input type="number" id="calibLength" value="10" step="0.1" min="0.001">
+      <select id="calibUnit">
+        <option value="km">km</option>
+        <option value="m">m</option>
+        <option value="cm">cm</option>
+        <option value="mm" selected>mm</option>
+        <option value="um">&mu;m</option>
+        <option value="nm">nm</option>
+        <option value="A">&Aring;</option>
+        <option value="in">in</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label data-i18n="calibrate.dpiAuto">DPI в пикселях на дюйм будет пересчитан автоматически.</label>
+    </div>
+    <button class="btn btn-primary" id="applyCalibBtn" data-i18n="calibrate.apply">Применить калибровку</button>
+  </div>
+</div>
+
+<!-- Rotation info bar -->
+<div id="rotationBar" class="status-bar hidden" style="background:var(--accent);color:#fff;font-weight:500;">
+  <span data-i18n="rotate.barHint">↻ Режим поворота: стрелки ← → (1°), Shift+стрелки (0.1°)</span>
+  <button class="btn btn-small" id="doneRotateBtn" style="margin-left:auto;background:rgba(255,255,255,0.2);color:#fff;border-color:rgba(255,255,255,0.3);" data-i18n="rotate.done">Готово</button>
+</div>
+
+<!-- Calibration info bar -->
+<div id="calibrationBar" class="status-bar hidden">
+  <span data-i18n="calib.barHint">⚡ Режим калибровки: кликните первую точку отрезка известной длины</span>
+</div>
+
+<!-- Status bar -->
+<div id="statusBar">
+  <span id="statusText" data-i18n="status.loadImage">Загрузите изображение</span>
+</div>
+
+<!-- Calibration Dialog (from toolbar button) -->
+<div id="calibrationDialog" class="modal hidden">
+  <div class="modal-content" style="min-width:420px;">
+    <h2 data-i18n="calib.title">🗜 Калибровка</h2>
+    <p style="margin-bottom:12px;" data-i18n="calib.chooseMethod">Выберите способ калибровки:</p>
+    <div style="margin-bottom:8px;padding:10px;border:1px solid var(--border);border-radius:6px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:16px;">1.</span>
+        <span data-i18n="calib.enterDpi">Ввести DPI вручную:</span>
+        <input type="number" id="calDpiInput" value="300" min="1" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);">
+        <span>dpi</span>
+        <button class="btn btn-small btn-primary" id="calDpiBtn" data-i18n="calib.apply">Применить</button>
+        <span id="calDpiDone" style="color:#5ae08a;font-size:13px;display:none;">✓</span>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;padding:10px;border:1px solid var(--border);border-radius:6px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:16px;">2.</span>
+        <button class="btn btn-small" id="calSegBtn" data-i18n="calib.calibrate">📏 Откалибровать отрезком известной длины</button>
+        <span id="calSegDone" style="color:#5ae08a;font-size:13px;display:none;">✓</span>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <button class="btn btn-primary" id="calDoneBtn" data-i18n="calib.done">Готово</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calibration Wizard -->
+<div id="calibWizard" class="modal hidden">
+  <div class="modal-content" style="min-width:420px;">
+    <h2>ImageCaliper 9</h2>
+    <p style="margin-bottom:10px;" data-i18n="calibWiz.subtitle">Изображение загружено. Выберите способ калибровки:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:5px 4px;font-weight:600;width:20px;">1.</td>
+        <td style="padding:5px 4px;">DPI:</td>
+        <td style="padding:5px 4px;"><input type="number" id="calibWizDpi" value="300" min="1" style="width:90px;padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"></td>
+        <td style="padding:5px 4px;"><button class="btn btn-small btn-primary" id="calibWizDpiBtn" data-i18n="calibWiz.apply">Применить</button></td>
+        <td style="padding:5px 4px;width:20px;"><span id="calibWizDpiDone" style="color:#5ae08a;display:none;">✓</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:5px 4px;font-weight:600;white-space:nowrap;">2.</td>
+        <td style="padding:5px 4px;white-space:nowrap;"><input type="number" id="calibWizPx" value="100" min="1" style="width:60px;padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"> px =</td>
+        <td style="padding:5px 4px;white-space:nowrap;"><input type="number" id="calibWizLen" value="10" min="0.001" step="any" style="width:60px;padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"> <select id="calibWizUnit" style="padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"></select></td>
+        <td style="padding:5px 4px;white-space:nowrap;"><button class="btn btn-small btn-primary" id="calibWizRatioBtn" data-i18n="calibWiz.apply">Применить</button></td>
+        <td style="padding:5px 4px;white-space:nowrap;"><span id="calibWizRatioDone" style="color:#5ae08a;display:none;">✓</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:5px 4px;font-weight:600;">3.</td>
+        <td style="padding:5px 4px;" data-i18n="calibWiz.segment">Отрезок:</td>
+        <td style="padding:5px 4px;"><input type="number" id="calibWizSegLen" value="10" min="0.001" step="any" style="width:65px;padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"> <select id="calibWizSegUnit" style="padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"></select></td>
+        <td style="padding:5px 4px;"><button class="btn btn-small" id="calibWizSegBtn" data-i18n="calibWiz.calibrate">📏 Калибровать</button></td>
+        <td style="padding:5px 4px;"><span id="calibWizSegDone" style="color:#5ae08a;display:none;">✓</span></td>
+      </tr>
+      <tr>
+        <td style="padding:5px 4px;font-weight:600;">4.</td>
+        <td style="padding:5px 4px;" data-i18n="calibWiz.preset">Шаблон:</td>
+        <td style="padding:5px 4px;"><select id="calibWizPreset" style="width:100%;padding:3px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;"><option value="" data-i18n="calibWiz.select">— выберите —</option></select></td>
+        <td style="padding:5px 4px;"><button class="btn btn-small" id="calibWizPresetBtn" data-i18n="calibWiz.apply">Применить</button></td>
+        <td style="padding:5px 4px;"><span id="calibWizPresetDone" style="color:#5ae08a;display:none;">✓</span></td>
+      </tr>
+    </table>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-small" id="calibWizSavePreset" style="font-size:12px;" data-i18n="calibWiz.save">+ Сохранить шаблон</button>
+        <button class="btn btn-small" id="calibWizDeletePreset" style="font-size:12px;color:var(--danger);" disabled data-i18n="calibWiz.delete">✕ Удалить</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary" id="calibWizMeasure" data-i18n="calibWiz.measure">К измерениям</button>
+        <button class="btn btn-primary" id="calibWizOk" data-i18n="calibWiz.rotate">Поворот</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scale Bar Creation Modal -->
+<div id="scalebarModal" class="modal hidden">
+  <div class="modal-content" style="min-width:350px;">
+    <span class="close-btn" id="closeScalebarModal">&times;</span>
+    <h2 data-i18n="scalebar.title">▬ Масштабная планка</h2>
+    <div class="form-row"><label data-i18n="scalebar.length">Длина:</label><input type="number" id="scalebarLength" value="10" step="0.1" min="0.001">
+    <select id="scalebarUnit"><option value="km">km</option><option value="m">m</option><option value="cm">cm</option><option value="mm" selected>mm</option><option value="um">&mu;m</option><option value="nm">nm</option><option value="A">&Aring;</option><option value="in">in</option></select></div>
+    <div class="form-row"><label data-i18n="scalebar.height">Высота:</label><input type="number" id="scalebarHeight" value="20" min="1" step="1" style="width:80px;"> <span style="font-size:12px;color:var(--text-dim);">px</span></div>
+    <button class="btn btn-primary" id="applyScalebarBtn" data-i18n="scalebar.create">Создать</button>
+  </div>
+</div>
+
+<!-- Info Modal -->
+<div id="infoModal" class="modal hidden">
+  <div class="modal-content" style="min-width:300px;">
+    <span class="close-btn" id="closeInfoModal">&times;</span>
+    <h2 data-i18n="ui.info">ℹ Информация об изображении</h2>
+    <div id="infoModalBody"><p class="hint" data-i18n="status.loadImage">Загрузите изображение</p></div>
+  </div>
+</div>
+
+<datalist id="colorPresets">
+  <option value="#000000">
+  <option value="#ffffff">
+  <option value="#ff0000">
+  <option value="#00ff00">
+  <option value="#0000ff">
+  <option value="#ffff00">
+  <option value="#ff00ff">
+  <option value="#00ffff">
+  <option value="#7c6ff0">
+  <option value="#ff8800">
+</datalist>
+
+<!-- Export Modal -->
+<div id="exportModal" class="modal hidden">
+  <div class="modal-content" style="min-width:420px;">
+    <h2 data-i18n="export.title">🖼 Экспорт PNG</h2>
+    <p style="margin-bottom:8px;" data-i18n="export.subtitle">Выберите разрешение экспорта:</p>
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;">
+      <input type="radio" name="exportRes" value="screen" checked style="margin-top:3px;">
+      <div>
+        <div style="font-weight:600;"><span data-i18n="export.screen">Как на экране</span> <span id="exportResScreen" style="font-weight:400;color:var(--text-dim);"></span></div>
+        <div style="font-size:12px;color:var(--text-dim);" data-i18n="export.screenHint">Текущий масштаб и положение экрана. Для презентаций.</div>
+      </div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;cursor:pointer;">
+      <input type="radio" name="exportRes" value="full" style="margin-top:3px;">
+      <div>
+        <div style="font-weight:600;"><span data-i18n="export.print">Для печати</span> <span id="exportResFull" style="font-weight:400;color:var(--text-dim);"></span></div>
+        <div style="font-size:12px;color:var(--text-dim);" data-i18n="export.printHint">300 DPI, минимум 1800 px. Для статей и отчётов.</div>
+      </div>
+    </label>
+    <div style="text-align:center;margin-bottom:8px;">
+      <canvas id="exportPreview" style="max-width:100%;max-height:480px;border-radius:4px;background:#16162a;image-rendering:auto;"></canvas>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:6px;">
+      <button class="btn btn-small" id="exportCopyBtn" data-i18n="export.copy">📋 Копировать</button>
+      <button class="btn btn-small" id="exportModalCancel" data-i18n="export.cancel">Отмена</button>
+      <button class="btn btn-primary btn-small" id="exportModalOk" data-i18n="export.export">Экспорт</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts: UTIF.js (third-party) first, then our modules in dependency order -->
+<script src="lib/UTIF.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/coords.js"></script>
+<script src="js/dpi.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/measurements.js"></script>
+<script src="js/rendering.js"></script>
+<script src="js/properties.js"></script>
+<script src="js/image-loader.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/project.js"></script>
+<script src="js/events.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
