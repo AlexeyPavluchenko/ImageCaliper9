@@ -1,8 +1,8 @@
 # ImageCaliper 9
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-blue?logo=github)](https://AlexeyPavluchenko.github.io/ImageCaliper9/)
-
 Image measurement and annotation tool. Runs entirely in the browser, no server or installation required.
+
+### <img src="favicon.png" width="16" height="16" alt=""> Try it online — [AlexeyPavluchenko.github.io/ImageCaliper9](https://AlexeyPavluchenko.github.io/ImageCaliper9/)
 
 [Русская версия](README.ru.md)
 
